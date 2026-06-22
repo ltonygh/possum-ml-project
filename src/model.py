@@ -5,6 +5,10 @@ import torch
 import torch.nn as nn
 import logging
 
+logging.basicConfig(level=logging.INFO)
+
+
+
 def data_transform(df: pd.DataFrame, features_list: List[str], labels_list: List[str]) -> Tuple[torch.Tensor, torch.Tensor]:
     """Validate columns' presence, separate and convert them into Pytorch tensors of features and labels respectively"""
 
@@ -34,75 +38,13 @@ def data_transform(df: pd.DataFrame, features_list: List[str], labels_list: List
 
 
 
-def build_model() -> nn.model:
-    model = nn.Sequential(
+def build_model(input_dim: int, hidden_dim: int = 8) -> nn.Module:
+    torch.manual_seed(42)
 
+    model = nn.Sequential(
+        nn.Linear(in_features = input_dim, out_featuers = hidden_dim),
+        nn.ReLU(),
+        nn.Linear(in_features = hidden_dim, out_featuers = 1),
     )
 
-"""
-# Create a tiny mock Pandas DataFrame (similar to your student dataset)
-mock_df = pd.DataFrame({
-    "Score": [85.0, 75.0, 90.0],
-    "RevTime": [12.0, 10.0, 13.0],
-    "TargetLength": [89.0, 91.5, 85.0]
-})
-
-# Extract features (X) and target (y) values
-X_values = mock_df[["Score", "RevTime"]].values
-y_values = mock_df["TargetLength"].values
-
-# Convert to standard 32-bit float PyTorch Tensors
-X_tensor = torch.tensor(X_values, dtype=torch.float32)
-y_tensor_raw = torch.tensor(y_values, dtype=torch.float32)
-
-print(f"Pandas target array shape: {y_values.shape}")
-print(f"PyTorch 1D target Tensor shape: {y_tensor_raw.shape}")
-
-# Use .unsqueeze(1) to convert from a flat list into a 2D matrix column
-y_tensor_proper = y_tensor_raw.unsqueeze(1)
-print(f"PyTorch 2D target Tensor shape after .unsqueeze(1):\n{y_tensor_proper.shape}\n")
-
-
-print("=== 2. UNDERSTANDING LAYER MATRIX MULTIPLICATION ===")
-
-# Set a fixed seed so your computer generates the exact same initial weights
-torch.manual_seed(42)
-
-# Define our input layer. 2 input features (Score, RevTime) -> 4 hidden nodes
-linear_layer = nn.Linear(in_features=2, out_features=4)
-
-# Look at the randomly initialized weight matrix under the hood
-print(f"Layer weight matrix shape (Out x In): {linear_layer.weight.shape}")
-
-# Feed our 3-row feature matrix into the layer
-layer_output = linear_layer(X_tensor)
-print(f"Output shape after passing through Linear Layer: {layer_output.shape}")
-print(f"Actual matrix values outputted:\n{layer_output}\n")
-
-
-print("=== 3. UNDERSTANDING NON-LINEAR RELU ACTIVATION ===")
-
-# Instantiate a ReLU activation function
-relu_activation = nn.ReLU()
-
-# Push our layer outputs through ReLU
-activated_output = relu_activation(layer_output)
-print(f"Output values after running through ReLU activation function:")
-print(activated_output)
-print("(Notice how every single negative number was automatically replaced with 0.0!)\n")
-
-
-print("=== 4. ASSEMBLING THE COMPLETE NEURAL NETWORK ===")
-
-# Define a full architecture container using nn.Sequential
-model = nn.Sequential(
-    nn.Linear(in_features=2, out_features=4),  # Layer 1: 2 inputs -> 4 outputs
-    nn.ReLU(),                                  # Non-linear threshold flag
-    nn.Linear(in_features=4, out_features=1)   # Layer 2: 4 inputs -> 1 final prediction
-)
-
-# Run a complete forward pass calculation
-predictions = model(X_tensor)
-print(f"Final model output shape: {predictions.shape}")
-print(f"Predicted target outcomes:\n{predictions}")
-"""
+    return model    

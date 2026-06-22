@@ -5,6 +5,8 @@ import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 import logging
 
+logging.basicConfig(level=logging.INFO)
+
 
 
 def load_dataset(file_path: str) -> pd.DataFrame:
