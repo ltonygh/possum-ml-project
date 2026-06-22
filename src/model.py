@@ -12,6 +12,11 @@ logging.basicConfig(level=logging.INFO)
 def data_transform(df: pd.DataFrame, features_list: List[str], labels_list: List[str]) -> Tuple[torch.Tensor, torch.Tensor]:
     """Validate columns' presence, separate and convert them into Pytorch tensors of features and labels respectively"""
 
+    if not features_list:
+        raise ValueError("Data transform aborted. Features list cannot be empty.")
+    if not labels_list:
+        raise ValueError("Data transform aborted. Labels list cannot be empty.")
+    
     missing_features = set(features_list) - set(df.columns)
     if missing_features:
         raise ValueError(f"Data transform aborted. Missing structural features: {missing_features}")
@@ -38,13 +43,13 @@ def data_transform(df: pd.DataFrame, features_list: List[str], labels_list: List
 
 
 
-def build_model(input_dim: int, hidden_dim: int = 8) -> nn.Module:
-    torch.manual_seed(42)
+def build_model(input_dim: int, hidden_dim: int = 8, rand_seed: int = 42) -> nn.Module:
+    torch.manual_seed(rand_seed)
 
     model = nn.Sequential(
-        nn.Linear(in_features = input_dim, out_featuers = hidden_dim),
+        nn.Linear(in_features = input_dim, out_features = hidden_dim),
         nn.ReLU(),
-        nn.Linear(in_features = hidden_dim, out_featuers = 1),
+        nn.Linear(in_features = hidden_dim, out_features = 1),
     )
 
     return model    
