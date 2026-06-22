@@ -1,0 +1,12 @@
+# Python bytecode caches
+__pycache__/
+*.pyc
+
+# Local Data and Model Outputs (Keep large files out of git)
+data/
+models/
+.pytest_cache/
+
+# Development environments
+venv/
+.env
