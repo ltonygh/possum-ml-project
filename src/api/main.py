@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 
 
 app = FastAPI(
-    title="Australian Possum Morphometric Predictor API",
-    description="Production endpoint delivering inference scores for possum population metrics.",
-    version="1.0.0"
+    title = "Possum Morphometric Predictor API",
+    description = "Production endpoint delivering inference scores for possum population metrics.",
+    version = "1.0.0"
 )
 
 class PossumInferenceRequest(BaseModel):
@@ -23,29 +23,35 @@ class PossumInferenceRequest(BaseModel):
 
 
 
-_PREDICTOR = None
-MODEL_WEIGHTS_PATH = "models/possum_classifier.pkl"
+predict = None
+model = "models/possum_classifier.pkl"
 
 def load_cached_predictor():
-    """Lazy-loads your serialized data-science weights safely from disk once."""
-    global _PREDICTOR
-    if _PREDICTOR is None:
-        if not os.path.exists(MODEL_WEIGHTS_PATH):
-            raise RuntimeError(f"Weights asset file missing from disk path: {MODEL_WEIGHTS_PATH}")
-        with open(MODEL_WEIGHTS_PATH, "rb") as f:
-            _PREDICTOR = pickle.load(f)
-    return _PREDICTOR
+    """
+        Lazy loads the weights from the optimized model.
+    """
+
+    global predict
+    if predict is None:
+        if not os.path.exists(model):
+            raise RuntimeError(f"Weights asset file missing from disk path: {model}")
+        with open(model, "rb") as f:
+            predict = pickle.load(f)
+    return predict
 
 
 
 @app.get("/", tags=["System Status"])
 def read_root():
-    return {"status": "online", "model_configured": os.path.exists(MODEL_WEIGHTS_PATH)}
+    return {"status": "online", "model_configured": os.path.exists(model)}
 
 
 @app.post("/predict", tags=["Machine Learning Inference"])
 def predict_possum_metrics(payload: PossumInferenceRequest):
-    """Accepts JSON payloads, parses feature strings, and runs matrix evaluations."""
+    """
+        Accepts JSON payloads, parses feature strings, and runs matrix evaluations.
+    """
+    
     try:
         model = load_cached_predictor()
     except Exception as err:
