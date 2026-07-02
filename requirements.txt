@@ -2,3 +2,10 @@ numpy
 pandas
 torch
 pytest
+fastapi
+uvicorn[standard]
+pydantic
+jupyter
+notebook
+matplotlib
+seaborn
