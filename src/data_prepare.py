@@ -10,7 +10,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 def load_dataset(file_path: str) -> pd.DataFrame:
-    """Load the dataset from a CSV file"""
+    """
+        Load the dataset from a CSV file.
+    """
 
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Pssum dataset file not found at: {file_path}")
@@ -23,7 +25,9 @@ def load_dataset(file_path: str) -> pd.DataFrame:
 
 
 def drop_column(df: pd.DataFrame, column_list: List[str]) -> pd.DataFrame:
-    """Drop the items in the list."""
+    """
+        Drop the items in the list.
+    """
 
     valid_drop = set(df.columns) & set(column_list)
     if not valid_drop:
@@ -42,16 +46,16 @@ def drop_column(df: pd.DataFrame, column_list: List[str]) -> pd.DataFrame:
 
 def remove_examples(df: pd.DataFrame, column_name: str, criteria: str, query_value: Any = None) -> pd.DataFrame:
     """
-    Removes the examples that match the criteria in the specified column
-    
-    Criteria:
-    - null: The value is empty
-    - notnull: The value is not empty
-    - greater: The value is larger than the provided value
-    - smaller: The value is smaller than the provided value
-    - equal: The value is equal to the provided value
-    - greater_equal: The value is greater or equal to the provided value
-    - smaller_equal: The value is smaller or equal to the provided value
+        Removes the examples that match the criteria in the specified column.
+        
+        Criteria:
+        - null: The value is empty
+        - notnull: The value is not empty
+        - greater: The value is larger than the provided value
+        - smaller: The value is smaller than the provided value
+        - equal: The value is equal to the provided value
+        - greater_equal: The value is greater or equal to the provided value
+        - smaller_equal: The value is smaller or equal to the provided value
     """
 
     if column_name not in df.columns:
@@ -87,16 +91,16 @@ def remove_examples(df: pd.DataFrame, column_name: str, criteria: str, query_val
 
 def update_examples(df: pd.DataFrame, column_name: str, criteria: str, value: Any = None, new_value: Any = None) -> pd.DataFrame:
     """
-    Updates the examples that match the criteria in the specified column with the provided new value
-    
-    Criteria:
-    - null: The value is empty
-    - notnull: The value is not empty
-    - greater: The value is larger than the provided value
-    - smaller: The value is smaller than the provided value
-    - equal: The value is equal to the provided value
-    - greater_equal: The value is greater or equal to the provided value
-    - smaller_equal: The value is smaller or equal to the provided value
+        Updates the examples that match the criteria in the specified column with the provided new value.
+
+        Criteria:
+        - null: The value is empty
+        - notnull: The value is not empty
+        - greater: The value is larger than the provided value
+        - smaller: The value is smaller than the provided value
+        - equal: The value is equal to the provided value
+        - greater_equal: The value is greater or equal to the provided value
+        - smaller_equal: The value is smaller or equal to the provided value
     """
 
     if column_name not in df.columns:
@@ -138,7 +142,9 @@ def update_examples(df: pd.DataFrame, column_name: str, criteria: str, value: An
 
 
 def onehot_encode_columns(df: pd.DataFrame, column_list: List[str]) -> pd.DataFrame:
-    """One-hot encode the listed columns"""
+    """
+        One-hot encode the listed columns.
+    """
 
     valid_encode = set(df.columns) & set(column_list)
     if not valid_encode:
