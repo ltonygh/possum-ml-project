@@ -13,13 +13,15 @@ app = FastAPI(
 )
 
 class PossumInferenceRequest(BaseModel):
-    """Strictly type-checks incoming web requests to ensure schema validation safety."""
-    site: int = Field(..., description="Site code where possum was captured (1-7)", ge=1, le=7)
-    age: float = Field(..., description="Age of the possum in years", ge=0.0, le=15.0)
+    """
+        Strictly type-checks incoming web requests to ensure schema validation safety.
+    """
+    site:    int = Field(..., description="Site code where possum was captured (1-7)", ge=1, le=7)
+    age:     float = Field(..., description="Age of the possum in years", ge=0.0, le=15.0)
     head_ln: float = Field(..., description="Head length in millimeters", ge=50.0, le=120.0)
     skull_w: float = Field(..., description="Skull width in millimeters", ge=30.0, le=80.0)
     total_l: float = Field(..., description="Total length in centimeters", ge=60.0, le=110.0)
-    tail_l: float = Field(..., description="Tail length in centimeters", ge=20.0, le=55.0)
+    tail_l:  float = Field(..., description="Tail length in centimeters", ge=20.0, le=55.0)
 
 
 
@@ -74,5 +76,5 @@ def predict_possum_metrics(payload: PossumInferenceRequest):
     return {
         "prediction_index": prediction_index,
         "predicted_population": result_population,
-        "input_features_validated": payload.dict()
+        "input_features_validated": payload.model_dump()
     }
