@@ -1,55 +1,53 @@
-from typing import List, Tuple
-import pandas as pd
-import numpy as np
 import torch
 import torch.nn as nn
-import logging
 
-logging.basicConfig(level=logging.INFO)
+class PossumSexClassifier(nn.Module):
+    """
+        PyTorch neural network for binary classification on possum sex.
+    """
+    def __init__(self, input_dim: int = 5, hidden_dim: int = 16):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1) # Outputs 1 logit score
+        )
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.network(x)
 
+class PossumAgeRegressor(nn.Module):
+    """
+        PyTorch neural network for linear regression on possum age.
+    """
+    def __init__(self, input_dim: int = 5, hidden_dim: int = 16):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.network(x)
 
-
-def data_transform(df: pd.DataFrame, features_list: List[str], labels_list: List[str]) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Validate columns' presence, separate and convert them into Pytorch tensors of features and labels respectively"""
-
-    if not features_list:
-        raise ValueError("Data transform aborted. Features list cannot be empty.")
-    if not labels_list:
-        raise ValueError("Data transform aborted. Labels list cannot be empty.")
-    
-    missing_features = set(features_list) - set(df.columns)
-    if missing_features:
-        raise ValueError(f"Data transform aborted. Missing structural features: {missing_features}")
-    
-    missing_labels = set(labels_list) - set(df.columns)
-    if missing_labels:
-        raise ValueError(f"Data transform aborted. Missing structural labels: {missing_labels}")
-    
-    unused_features = set(df.columns) - (set(features_list) | set(labels_list))
-    if unused_features:
-        logging.warning(f"Data transform pipeline warning. Unused columns: {unused_features}")
-    
-
-    X_value = df[features_list].values
-    y_value = df[labels_list].values
-
-    tensor_X = torch.tensor(X_value, dtype=torch.float32)
-    tensor_y = torch.tensor(y_value, dtype=torch.float32)
-
-    if tensor_y.dim() == 1:
-        tensor_y = tensor_y.unsqueeze(1)
-
-    return tensor_X, tensor_y
-
-
-
-def build_model(input_dim: int, hidden_dim: int = 8, rand_seed: int = 42) -> nn.Module:
-    torch.manual_seed(rand_seed)
-
-    model = nn.Sequential(
-        nn.Linear(in_features = input_dim, out_features = hidden_dim),
-        nn.ReLU(),
-        nn.Linear(in_features = hidden_dim, out_features = 1),
-    )
-
-    return model    
+class PossumHeadLengthRegressor(nn.Module):
+    """
+        PyTorch neural network for linear regression on possum head length.
+    """
+    def __init__(self, input_dim: int = 5, hidden_dim: int = 16):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.network(x)
