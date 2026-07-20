@@ -82,6 +82,7 @@ def train_and_evaluate(X_train_np, y_train_np, X_val_np, y_val_np, trial, is_reg
     for _ in range(20):
         for batch_x, batch_y in train_loader:
             optimizer.zero_grad()
+            outputs = model(batch_x)
             loss = criterion(outputs, batch_y)
             loss.backward()
             optimizer.step()
@@ -94,6 +95,7 @@ def train_and_evaluate(X_train_np, y_train_np, X_val_np, y_val_np, trial, is_reg
     with torch.no_grad():
         for batch_x, batch_y in val_loader:
             outputs = model(batch_x)
+            
             if is_regression:
                 loss = criterion(outputs, batch_y)
                 val_loss_accumulator += loss.item() * batch_x.size(0)
