@@ -151,12 +151,11 @@ def run_pipeline_tuning(csv_path: str, output_dir: str = "models"):
             n_trials=15
         )
 
-        logging.info(f"{target_col} Best Trial Optimization Score: {study.best_value:.4f}")
-        logging.info(f"{target_col}Best Configuration Found: {study.best_params}")
+        logging.info(f"{target_col} Best Trial Optimization Score: {np.abs(study.best_value):.4f}")
+        logging.info(f"{target_col} Best Configuration Found: {study.best_params}")
 
         best_params = study.best_params
         final_model = PossumNetwork(X_train_np.shape[1], best_params["hidden_dim"], best_params["num_layers"], best_params["dropout_rate"])
-        
         export_path = os.path.join(output_dir, meta["file"])
         torch.save({
             "state_dict": final_model.state_dict(),
