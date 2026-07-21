@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import torch
 import torch.nn as nn
-from src.model import data_transform, build_model
+from src.model import data_transform, build_model, PossumNetwork
 
 
 
@@ -32,7 +32,9 @@ def dummy_df() -> pd.DataFrame:
 
 
 def test_data_transform(dummy_df):
-    """Test if function data_transform works as intended"""
+    """
+        Test if function data_transform works as intended.
+    """
 
     features_list = ["Population", "Stress"]
     labels_list = ["Happiness"]
@@ -44,7 +46,9 @@ def test_data_transform(dummy_df):
     assert y_tensor.shape == (3, 1)
 
 def test_data_transform_no_feature(dummy_df):
-    """Test if function data_transform aborts when no features are introduced"""
+    """
+        Test if function data_transform aborts when no features are introduced.
+    """
 
     features_list = []
     labels_list = ["Happiness"]
@@ -53,7 +57,9 @@ def test_data_transform_no_feature(dummy_df):
         data_transform(dummy_df, features_list, labels_list)
 
 def test_data_transform_missing_features(dummy_df):
-    """Test if function data_transform aborts when no labels are introduced"""
+    """
+        Test if function data_transform aborts when no labels are introduced.
+    """
 
     features_list = ["Populations", "Stress"]
     labels_list = ["Happiness"]
@@ -62,7 +68,9 @@ def test_data_transform_missing_features(dummy_df):
         data_transform(dummy_df, features_list, labels_list)
 
 def test_data_transform_unused_features(dummy_df):
-    """Test if function data_transform works as intended when certain features are not used"""
+    """
+        Test if function data_transform works as intended when certain features are not used.
+    """
 
     features_list = ["Population"]
     labels_list = ["Happiness"]
@@ -76,16 +84,20 @@ def test_data_transform_unused_features(dummy_df):
 
 
 def test_build_model():
-    """Test if function build_model works as intended"""
+    """
+        Test if function build_model works as intended.
+    """
 
     input_size = 5
     hidden_size = 12
     batch_size = 4
 
     model = build_model(input_dim=input_size, hidden_dim=hidden_size)
-    assert isinstance(model, nn.Sequential)
+    assert isinstance(model, PossumNetwork)
 
     test_input = torch.randn(batch_size, input_size)
-    predictions = model(test_input)
+    model.eval()
+    with torch.no_grad():
+        predictions = model(test_input)
 
     assert predictions.shape == (batch_size, 1)
