@@ -56,7 +56,7 @@ def train_and_evaluate(X_train_np, y_train_np, X_val_np, y_val_np, trial, is_reg
     criterion = nn.MSELoss() if is_regression else nn.BCEWithLogitsLoss()
 
     model.train()
-    for _ in range(20):
+    for _ in range(30):
         for batch_x, batch_y in train_loader:
             optimizer.zero_grad()
             outputs = model(batch_x)
@@ -88,8 +88,7 @@ def train_and_evaluate(X_train_np, y_train_np, X_val_np, y_val_np, trial, is_reg
 
 def run_pipeline_tuning(csv_path: str, output_dir: str = "models"):
     """
-        Loads data, isolates cross-validation matrices, calculates 
-        Bayesian parameters, and exports the final trained state dict array.
+        Loads data, isolates cross-validation matrices, calculates Bayesian parameters, and exports the final trained state dict array.
     """
 
     os.makedirs(output_dir, exist_ok=True)
@@ -97,35 +96,40 @@ def run_pipeline_tuning(csv_path: str, output_dir: str = "models"):
     
     df["sex_encoded"] = df["sex"].astype(str).str.strip().str.lower().map({"f": 1, "m": 0})
         
-    relation_features = ["age", "hdlngth", "skullw", "totlngth", "taill"]
-    
     target_tasks = {
-        "sex_encoded": {"is_reg": False, "file": "possum_sex_clf.pth"},
-        "age":         {"is_reg": True, "file": "possum_age_reg.pth"},
-        "hdlngth":     {"is_reg": True, "file": "possum_hdlngth_reg.pth"}
+        "sex_encoded": {"is_reg": False, "file": "possum_sex_clf.pth", "features": ["totlngth", "footlgth", "chest", "earconch", "belly"]},
+        "age":         {"is_reg": True,  "file": "possum_age_reg.pth",  "features": ["belly", "chest", "skullw", "totlngth", "eye"]},
+        "hdlngth":     {"is_reg": True,  "file": "possum_hdlngth_reg.pth", "features": ["skullw", "totlngth", "chest", "belly", "footlgth"]}
     }
 
     for target_col, meta in target_tasks.items():
         logging.info(f"Hypertuning for {target_col.upper()}")
+        features = meta["features"]
 
         X_train, X_val, X_test, y_train, y_val, y_test = split_data(
             df=df,
-            feature_list=[f for f in relation_features if f != target_col], # Prevent data leakage
+            feature_list=features, 
             target_col=target_col,
             stratify_target=not meta["is_reg"],
             train_validate_test_ratio=(0.7, 0.1, 0.2),
             random_state=42
         )
 
-        X_train_np = X_train.values.astype(np.float32)
+        mean_scale = X_train.mean()
+        std_scale = X_train.std().replace(0, 1)
+
+        X_train_scaled = (X_train - mean_scale) / std_scale
+        X_val_scaled = (X_val - mean_scale) / std_scale
+
+        X_train_np = X_train_scaled.values.astype(np.float32)
         y_train_np = y_train.values.astype(np.float32)
-        X_val_np = X_val.values.astype(np.float32)
+        X_val_np = X_val_scaled.values.astype(np.float32)
         y_val_np = y_val.values.astype(np.float32)
 
         study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler())
         study.optimize(
             lambda trial: train_and_evaluate(X_train_np, y_train_np, X_val_np, y_val_np, trial, meta["is_reg"]), 
-            n_trials=15
+            n_trials=20
         )
 
         logging.info(f"{target_col} Best Trial Optimization Score: {np.abs(study.best_value):.4f}")
@@ -133,12 +137,43 @@ def run_pipeline_tuning(csv_path: str, output_dir: str = "models"):
 
         best_params = study.best_params
         final_model = PossumNetwork(X_train_np.shape[1], best_params["hidden_dim"], best_params["num_layers"], best_params["dropout_rate"])
+        
+
+        if best_params["optimizer"] == "Adam":
+            optimizer = optim.Adam(final_model.parameters(), lr=best_params["lr"])
+        elif best_params["optimizer"] == "RMSprop":
+            optimizer = optim.RMSprop(final_model.parameters(), lr=best_params["lr"])
+        else:
+            optimizer = optim.SGD(final_model.parameters(), lr=best_params["lr"], momentum=0.9)
+
+        criterion = nn.MSELoss() if meta["is_reg"] else nn.BCEWithLogitsLoss()
+
+        X_full_scaled = pd.concat([X_train_scaled, X_val_scaled]).values.astype(np.float32)
+        y_full_labels = pd.concat([y_train, y_val]).values.astype(np.float32)
+
+        full_loader = DataLoader(
+            TensorDataset(torch.FloatTensor(X_full_scaled), torch.FloatTensor(y_full_labels).unsqueeze(1)),
+            batch_size=best_params["batch_size"], shuffle=True
+        )
+
+        final_model.train()
+        for _ in range(50):
+            for bx, by in full_loader:
+                optimizer.zero_grad()
+                loss = criterion(final_model(bx), by)
+                loss.backward()
+                optimizer.step()
+        
+        final_model.eval()
+
         export_path = os.path.join(output_dir, meta["file"])
         torch.save({
             "state_dict": final_model.state_dict(),
             "hyperparameters": best_params,
-            "features_ordered": [f for f in relation_features if f != target_col],
-            "is_classification": not meta["is_reg"]
+            "features_ordered": features,
+            "is_classification": not meta["is_reg"],
+            "scale_mean": mean_scale.to_dict(),
+            "scale_std": std_scale.to_dict()
         }, export_path)
         
         logging.info(f"Production weights successfully serialized to: {export_path}\n")
