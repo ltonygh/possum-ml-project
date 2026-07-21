@@ -47,6 +47,7 @@ def build_model(input_dim: int, hidden_dim: int, num_layers: int = 2, dropout_ra
     return PossumNetwork(input_dim, hidden_dim, num_layers, dropout_rate)
 
 
+
 class PossumSexClassifier(nn.Module):
     """
         PyTorch neural network for binary classification on possum sex.
@@ -58,7 +59,7 @@ class PossumSexClassifier(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.ReLU(),
-            nn.Linear(hidden_dim // 2, 1) # Outputs 1 logit score
+            nn.Linear(hidden_dim // 2, 1)
         )
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:

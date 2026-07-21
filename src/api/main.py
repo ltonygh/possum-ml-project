@@ -13,16 +13,17 @@ app = FastAPI(
     version = "1.2.0"
 )
 
-class PossumFeatures(BaseModel):
+class PossumJSONRequest(BaseModel):
     """
-        Strictly type-checks incoming web requests to ensure schema validation safety.
+        Strictly type-checks incoming requests to ensure comprehensive feature validation.
     """
-    site:    int = Field(..., description="Site code where possum was captured (1-7)", ge=1, le=7)
-    age:     float = Field(..., description="Age of the possum in years", ge=0.0, le=15.0)
-    hdlngth: float = Field(..., description="Head length in millimeters", ge=50.0, le=120.0)
-    skullw:  float = Field(..., description="Skull width in millimeters", ge=30.0, le=80.0)
-    totlngth:float = Field(..., description="Total length in centimeters", ge=60.0, le=110.0)
-    taill:   float = Field(..., description="Tail length in centimeters", ge=20.0, le=55.0)
+    totlngth: float = Field(..., description="Total length in centimeters", ge=60.0, le=110.0)
+    footlgth: float = Field(..., description="Foot length in millimeters", ge=50.0, le=80.0)
+    chest:    float = Field(..., description="Chest girth in centimeters", ge=20.0, le=45.0)
+    earconch: float = Field(..., description="Ear conch length in millimeters", ge=35.0, le=60.0)
+    belly:    float = Field(..., description="Belly circumference in centimeters", ge=20.0, le=45.0)
+    skullw:   float = Field(..., description="Skull width in millimeters", ge=30.0, le=80.0)
+    eye:      float = Field(..., description="Eye size dimension index", ge=10.0, le=25.0)
 
 
 
@@ -56,7 +57,9 @@ def load_pytorch_model(target_key: str):
         
         model_cache[target_key] = {
             "model": model,
-            "features_ordered": checkpoint["features_ordered"]
+            "features_ordered": checkpoint["features_ordered"],
+            "scale_mean": checkpoint["scale_mean"],
+            "scale_std": checkpoint["scale_std"]
         }
     return model_cache[target_key]
 
@@ -69,7 +72,7 @@ def read_root():
 
 
 @app.post("/predict")
-def predict_possum_metrics(payload: PossumFeatures):
+def predict_possum_metrics(payload: PossumJSONRequest):
     """
         Accepts JSON payloads, parses feature strings, and runs matrix evaluations on sex, age, and head length.
     """
@@ -77,14 +80,22 @@ def predict_possum_metrics(payload: PossumFeatures):
     raw_input = payload.model_dump()
     predictions = {}
 
-    for target, path in model_path.items():
+    for target, _ in model_path.items():
         try:
-            model_meta = load_pytorch_model(target)
-            model = model_meta["model"]
-            ordered_features = model_meta["features_ordered"]
+            meta = load_pytorch_model(target)
+            model = meta["model"]
+            ordered_features = meta["features_ordered"]
+            means = meta["scale_mean"]
+            stdevs = meta["scale_std"]
+
+            ordered_raw_vector = [raw_input[feat] for feat in ordered_features]
             
-            input_vector = [raw_input[feat] for feat in ordered_features]
-            input_tensor = torch.tensor([input_vector], dtype=torch.float32)
+            scaled_vector = []
+            for i, feat in enumerate(ordered_features):
+                scaled_val = (ordered_raw_vector[i] - means[feat]) / stdevs[feat]
+                scaled_vector.append(scaled_val)
+
+            input_tensor = torch.tensor([scaled_vector], dtype=torch.float32)
             
             with torch.no_grad():
                 raw_output = model(input_tensor).item()
@@ -100,7 +111,7 @@ def predict_possum_metrics(payload: PossumFeatures):
             elif target == "age":
                 predictions["predicted_age_years"] = max(0.0, round(raw_output, 2))
             elif target == "hdlngth":
-                predictions["predicted_head_length_mm"] = round(raw_output, 2)
+                predictions["predicted_head_length_mm"] = max(0.0, round(raw_output, 2))
                 
         except Exception as err:
             raise HTTPException(status_code=503, detail=f"Inference failure on [{target}]: {str(err)}")
