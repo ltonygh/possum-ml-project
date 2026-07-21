@@ -10,33 +10,10 @@ import logging
 
 from src.data_prepare import load_dataset
 from src.data_split import split_data
+from src.model import PossumNetwork
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 logging.basicConfig(level=logging.INFO)
-
-
-
-class PossumNetwork(nn.Module):
-    """
-        A unified neural network architecture. Dynamically constructs hidden layers
-        and adapts outputs for either classification or regression tasks.
-    """
-    def __init__(self, input_dim: int, hidden_dim: int, num_layers: int, dropout_rate: float):
-        super().__init__()
-        layers = []
-        current_dim = input_dim
-        
-        for _ in range(num_layers):
-            layers.append(nn.Linear(current_dim, hidden_dim))
-            layers.append(nn.ReLU())
-            layers.append(nn.Dropout(dropout_rate))
-            current_dim = hidden_dim
-            
-        layers.append(nn.Linear(hidden_dim, 1))
-        self.network = nn.Sequential(*layers)
-        
-    def forward(self, x):
-        return self.network(x)
 
 
 
