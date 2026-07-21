@@ -109,7 +109,8 @@ def predict_possum_metrics(payload: PossumJSONRequest):
                     "confidence_probability": round(prob if pred_class == 1 else 1 - prob, 4)
                 }
             elif target == "age":
-                predictions["predicted_age_years"] = max(0.0, round(raw_output, 2))
+                real_age = np.expm1(raw_output)
+                predictions["predicted_age_years"] = max(0.0, round(real_age, 2))
             elif target == "hdlngth":
                 predictions["predicted_head_length_mm"] = max(0.0, round(raw_output, 2))
                 
