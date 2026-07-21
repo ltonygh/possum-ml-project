@@ -122,9 +122,16 @@ def run_pipeline_tuning(csv_path: str, output_dir: str = "models"):
         X_val_scaled = (X_val - mean_scale) / std_scale
 
         X_train_np = X_train_scaled.values.astype(np.float32)
-        y_train_np = y_train.values.astype(np.float32)
         X_val_np = X_val_scaled.values.astype(np.float32)
-        y_val_np = y_val.values.astype(np.float32)
+
+        if target_col == "age":
+            y_train_np = np.log1p(y_train.values).astype(np.float32)
+            y_val_np = np.log1p(y_val.values).astype(np.float32)
+        else:
+            y_train_np = y_train.values.astype(np.float32)
+            y_val_np = y_val.values.astype(np.float32)
+
+
 
         study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler())
         study.optimize(
@@ -139,6 +146,7 @@ def run_pipeline_tuning(csv_path: str, output_dir: str = "models"):
         final_model = PossumNetwork(X_train_np.shape[1], best_params["hidden_dim"], best_params["num_layers"], best_params["dropout_rate"])
         
 
+
         if best_params["optimizer"] == "Adam":
             optimizer = optim.Adam(final_model.parameters(), lr=best_params["lr"])
         elif best_params["optimizer"] == "RMSprop":
@@ -149,7 +157,10 @@ def run_pipeline_tuning(csv_path: str, output_dir: str = "models"):
         criterion = nn.MSELoss() if meta["is_reg"] else nn.BCEWithLogitsLoss()
 
         X_full_scaled = pd.concat([X_train_scaled, X_val_scaled]).values.astype(np.float32)
-        y_full_labels = pd.concat([y_train, y_val]).values.astype(np.float32)
+        if target_col == "age":
+            y_full_labels = np.log1p(pd.concat([y_train, y_val]).values).astype(np.float32)
+        else:
+            y_full_labels = pd.concat([y_train, y_val]).values.astype(np.float32)
 
         full_loader = DataLoader(
             TensorDataset(torch.FloatTensor(X_full_scaled), torch.FloatTensor(y_full_labels).unsqueeze(1)),
