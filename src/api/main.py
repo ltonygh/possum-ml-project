@@ -1,17 +1,16 @@
 import os
-import pickle
 import torch
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from src.model import PossumSexClassifier, PossumAgeRegressor, PossumHeadLengthRegressor
+from src.model import PossumNetwork
 
 
 
 app = FastAPI(
     title = "Possum Morphometric Predictor API",
     description = "Production endpoint delivering inference scores for possum population metrics.",
-    version = "1.1.0"
+    version = "1.2.0"
 )
 
 class PossumFeatures(BaseModel):
@@ -19,54 +18,54 @@ class PossumFeatures(BaseModel):
         Strictly type-checks incoming web requests to ensure schema validation safety.
     """
     site:    int = Field(..., description="Site code where possum was captured (1-7)", ge=1, le=7)
-    skull_w: float = Field(..., description="Skull width in millimeters", ge=30.0, le=80.0)
-    total_l: float = Field(..., description="Total length in centimeters", ge=60.0, le=110.0)
-    tail_l:  float = Field(..., description="Tail length in centimeters", ge=20.0, le=55.0)
+    age:     float = Field(..., description="Age of the possum in years", ge=0.0, le=15.0)
+    hdlngth: float = Field(..., description="Head length in millimeters", ge=50.0, le=120.0)
+    skullw:  float = Field(..., description="Skull width in millimeters", ge=30.0, le=80.0)
+    totlngth:float = Field(..., description="Total length in centimeters", ge=60.0, le=110.0)
+    taill:   float = Field(..., description="Tail length in centimeters", ge=20.0, le=55.0)
 
 
 
-predict_sex = None
-predict_age = None
-predict_headln = None
+model_cache = {}
+model_path = {
+    "sex": "models/possum_sex_clf.pth",
+    "age": "models/possum_age_reg.pth",
+    "hdlngth": "models/possum_hdlngth_reg.pth"
+}
 
-sex_path = "models/possum_sex.pth"
-age_path = "models/possum_age.pth"
-headln_path = "models/possum_headln.pth"
-
-def load_predictor():
+def load_pytorch_model(target_key: str):
     """
-        Lazy loads the weights from the optimized models.
+        Lazy-loads models, re-instantiates optimized topologies, and maps state weights.
     """
-
-    global predict_sex, predict_age, predict_headln
-
-    if predict_sex is None or predict_age is None or predict_headln is None:
-        predict_sex = PossumSexClassifier(input_dim=4, hidden_dim=16)
-        predict_age = PossumAgeRegressor(input_dim=4, hidden_dim=16)
-        predict_headln = PossumHeadLengthRegressor(input_dim=4, hidden_dim=16)
-    
-        if os.path.exists(sex_path): predict_sex.load_state_dict(torch.load(sex_path, weights_only=True))
-        if os.path.exists(age_path): predict_age.load_state_dict(torch.load(age_path, weights_only=True))
-        if os.path.exists(headln_path): predict_headln.load_state_dict(torch.load(headln_path, weights_only=True))
-
-        predict_sex.eval()
-        predict_age.eval()
-        predict_headln.eval()
-    
-    return predict_sex, predict_age, predict_headln
-
-
-
-@app.get("/")
-def get_status():
-    return {
-        "status": "online", 
-        "models_found": {
-            "sex_classifier": os.path.exists(sex_path),
-            "age_regressor": os.path.exists(age_path),
-            "head_length_regressor": os.path.exists(headln_path)
+    if target_key not in model_cache:
+        path = model_path[target_key]
+        if not os.path.exists(path):
+            raise RuntimeError(f"Model asset binary missing from disk: {path}")
+            
+        checkpoint = torch.load(path, map_location=torch.device("cpu"))
+        hparams = checkpoint["hyperparameters"]
+        
+        model = PossumNetwork(
+            input_dim=len(checkpoint["features_ordered"]),
+            hidden_dim=hparams["hidden_dim"],
+            num_layers=hparams["num_layers"],
+            dropout_rate=hparams["dropout_rate"]
+        )
+        model.load_state_dict(checkpoint["state_dict"])
+        model.eval()
+        
+        model_cache[target_key] = {
+            "model": model,
+            "features_ordered": checkpoint["features_ordered"]
         }
-    }
+    return model_cache[target_key]
+
+
+
+@app.get("/", tags=["System Status"])
+def read_root():
+    all_configured = all(os.path.exists(p) for p in model_path.values())
+    return {"status": "online", "models_configured": all_configured}
 
 
 @app.post("/predict")
@@ -75,39 +74,38 @@ def predict_possum_metrics(payload: PossumFeatures):
         Accepts JSON payloads, parses feature strings, and runs matrix evaluations on sex, age, and head length.
     """
     
-    sex_net, age_net, head_net = load_predictor()
+    raw_input = payload.model_dump()
+    predictions = {}
 
-    input_tensor = torch.tensor([[
-        payload.site, 
-        payload.skull_w, 
-        payload.total_l, 
-        payload.tail_l
-    ]], dtype=torch.float32)
-
-    with torch.no_grad():
-        raw_sex = sex_net(input_tensor)
-        raw_age = age_net(input_tensor)
-        raw_head = head_net(input_tensor)
-
-    sex_logit = float(raw_sex.item())
-    sex_prediction = "Male" if sex_logit > 0.0 else "Female"
-    if sex_logit > 0.0:
-        sex_confidence = (1.0 / (1/0 + np.exp(-sex_logit))) * 100
-    else: 
-        sex_confidence = (1.0 - (1.0 / (1.0 + np.exp(-sex_logit)))) * 100.0
-
-    predicted_age = max(0.0, float(raw_age.item()))
-
-    predicted_headln = float(raw_head.item())
-
+    for target, path in model_path.items():
+        try:
+            model_meta = load_pytorch_model(target)
+            model = model_meta["model"]
+            ordered_features = model_meta["features_ordered"]
+            
+            input_vector = [raw_input[feat] for feat in ordered_features]
+            input_tensor = torch.tensor([input_vector], dtype=torch.float32)
+            
+            with torch.no_grad():
+                raw_output = model(input_tensor).item()
+                
+            if target == "sex":
+                prob = 1 / (1 + torch.exp(torch.tensor(-raw_output)).item())
+                pred_class = 1 if prob >= 0.5 else 0
+                predictions["sex_prediction"] = {
+                    "index": pred_class,
+                    "label": "Female" if pred_class == 1 else "Male",
+                    "confidence_probability": round(prob if pred_class == 1 else 1 - prob, 4)
+                }
+            elif target == "age":
+                predictions["predicted_age_years"] = max(0.0, round(raw_output, 2))
+            elif target == "hdlngth":
+                predictions["predicted_head_length_mm"] = round(raw_output, 2)
+                
+        except Exception as err:
+            raise HTTPException(status_code=503, detail=f"Inference failure on [{target}]: {str(err)}")
+            
     return {
-        "predictions": {
-            "sex": {
-                "result": sex_prediction,
-                "confidence_probability": f"{sex_confidence:.2f}%"
-            },
-            "estimated_age_years": round(predicted_age, 1),
-            "estimated_head_length_mm": round(predicted_headln, 2)
-        },
-        "submitted_measurements": payload.dict()
+        "predictions": predictions,
+        "input_features_validated": raw_input
     }
